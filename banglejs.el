@@ -539,10 +539,12 @@ several elements."
                                           (mapcar (lambda (d) (format "%s" d))
                                                   banglejs-devices))
                        (car banglejs-devices))))
-  (let ((ble-buffer (get-buffer-create "*ble-serial*"))
-        (cmd (banglejs-ble-serial--format-string banglejs-ble-serial-cmd device))
-        (shell-command-dont-erase-buffer t))
-    (unless (banglejs-ble-serial--process-running-p device)
+         (ble-buffer (get-buffer-create "*ble-serial*"))
+         (cmd (banglejs-ble-serial--format-string banglejs-ble-serial-cmd device))
+         (shell-command-dont-erase-buffer t))
+    (if (banglejs-ble-serial--process-running-p device)
+        (when (called-interactively-p 'any)
+          (error (format "Process %s already running" cmd)))
       (message "Connecting…")
       (with-current-buffer ble-buffer
         (erase-buffer)
@@ -557,7 +559,8 @@ several elements."
             (setq idx (point)))))
       (unless (eq (process-status banglejs--ble-serial-process) 'run)
         (display-buffer ble-buffer)
-        (error (format "Process %s failed" cmd))))))
+        (error (format "Process %s failed" cmd)))
+      (message "Connected"))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
