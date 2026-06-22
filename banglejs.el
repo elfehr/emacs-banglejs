@@ -306,7 +306,8 @@ With a prefix argument, refresh the cached list of files before prompting."
   "Minor mode to interact with the Espruino terminal from the current buffer."
   :lighter " BangleJS"
   :keymap
-  `((,(kbd "C-c C-r") . banglejs-send-region)
+  `((,(kbd "C-c C-p") . banglejs-term)
+    (,(kbd "C-c C-r") . banglejs-send-region)
     (,(kbd "C-c C-l") . banglejs-send-line)
     (,(kbd "C-c C-d") . banglejs-send-defun)
     (,(kbd "C-c C-w") . banglejs-write-region-to-file))
