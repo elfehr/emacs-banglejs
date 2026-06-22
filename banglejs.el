@@ -191,11 +191,10 @@ The type of terminal is controlled by the variable
 (defun banglejs-send-region (begin end)
   "Send the region to the Espruino interpreter."
   (interactive (list (region-beginning) (region-end)))
-  (when (region-active-p)
-    (pulse-momentary-highlight-region begin end)
-    (banglejs-send-command (buffer-substring-no-properties begin end))
-    (deactivate-mark)
-    (display-buffer banglejs-term-buffer-name)))
+  (pulse-momentary-highlight-region begin end)
+  (banglejs-send-command (buffer-substring-no-properties begin end))
+  (deactivate-mark)
+  (display-buffer banglejs-term-buffer-name))
 
 (defun banglejs-send-line ()
   "Send the current line to the Espruino interpreter."
