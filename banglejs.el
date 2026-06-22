@@ -387,7 +387,13 @@ nothing to display if `banglejs-tcp-term--hide-output' is non-nil."
   (setq-local comint-highlight-input nil)
   (setq-local comint-indirect-setup-function #'js-mode)
   (setq-local comment-start "// ")
-  (comint-fontify-input-mode 1))
+  (comint-fontify-input-mode 1)
+  (add-hook 'kill-buffer-hook #'banglejs-tcp-term--cleanup nil t))
+
+(defun banglejs-tcp-term--cleanup ()
+  "Function running before killing the terminal buffer."
+  (when-let* ((buf (comint-indirect-buffer t)))
+    (kill-buffer buf)))
 
 (define-derived-mode banglejs-tcp-term-mode comint-mode "Banglejs[tcp]"
   "Major mode for `banglejs-tcp-term'."
