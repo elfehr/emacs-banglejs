@@ -1,10 +1,10 @@
 Interacts with the Javascript interpreter of an Espruino device via a serial or TCP port. This is meant as a replacement of the Espruino Web IDE.
 
 * Usage
-Connect the device to a serial port or a TCP socket. See below [[Quick instructions for ble-serial]].
-This can be done by external means, or by calling ~banglejs-ble-serial-start~. See [[Creating the serial port / TCP socket automatically]] for configuration instructions.
+Connect the device to a serial port or a TCP socket. See below [[#quick-instructions-for-ble-serial][Quick instructions for ble-serial]].
+This can be done by external means, or by calling ~banglejs-ble-serial-start~. See [[#creating-the-serial-port--tcp-socket-automatically][Creating the serial port / TCP socket automatically]] for configuration instructions.
 
-See [[Configure the serial backend]] or [[Configure the TCP backend]] to configure the port to use.
+See [[#configure-the-serial-backend][Configure the serial backend]] or [[#configure-the-tcp-backend][Configure the TCP backend]] to configure the port to use.
 
 Call ~banglejs-term~ to start the terminal or display its buffer. You can set ~banglejs-term-window-direction~ to start the terminal in a new window in an explicit direction.
 
