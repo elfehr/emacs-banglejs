@@ -1,0 +1,132 @@
+Interacts with the Javascript interpreter of an Espruino device via a serial or TCP port. This is meant as a replacement of the Espruino Web IDE.
+
+* Usage
+Connect the device to a serial port or a TCP socket. See below [[Quick instructions for ble-serial]].
+This can be done by external means, or by calling ~banglejs-ble-serial-start~. See [[Creating the serial port / TCP socket automatically]] for configuration instructions.
+
+See [[Configure the serial backend]] or [[Configure the TCP backend]] to configure the port to use.
+
+Call ~banglejs-term~ to start the terminal or display its buffer. You can set ~banglejs-term-window-direction~ to start the terminal in a new window in an explicit direction.
+
+From any buffer, you can call:
+- ~banglejs-send-region~, ~banglejs-send-defun~, ~banglejs-send-line~: send code to the interpreter.
+- ~banglejs-write-region-to-file~: query for a file name to upload the region or buffer to the device's storage.
+- ~banglejs-read-file~: query for a file to download from the device's storage and display in a new buffer.
+- ~banglejs-delete-file~: query for a file to erase from the device's storage.
+
+The ~banglejs-*-file~ functions might be slower the first time as they read the list of files on the device, to provide suggestions for completion. Use a prefix argument to refresh the cached list.
+
+Writing a file is done in chunks of 500 characters (~banglejs-chunk-size~) to avoid sending more data at once than the RAM can handle. Writing large files can block emacs for several seconds, as the function is waiting synchronously for a reply after sending each chunk. After writing, an error is raised if the content of the resulting file doesn't match the original region/buffer.
+
+For convenience, the minor mode ~banglejs-mode~ binds some of those functions.
+
+* Setup
+** Quick instructions for ble-serial
+To connect a Bluetooth Low Energy device to a virtual serial port or a TCP port, you can use for example https://github.com/Jakeler/ble-serial.
+
+Find the UUIDs for the read and write characteristics for your device. Here for a Bangle.js 2 (look for the lines Nordic UART RX and Nordic UART TX):
+#+begin_src sh
+ble-scan -d <MAC address>
+#+end_src
+#+RESULTS:
+#+begin_src sh
+Found device <MAC address>: Bangle.js (out of 1)
+SERVICE 6e400001-b5a3-f393-e0a9-e50e24dcca9e (Handle: 11): Nordic UART Service
+     CHARACTERISTIC 6e400002-b5a3-f393-e0a9-e50e24dcca9e (Handle: 12): Nordic UART RX ['write-without-response', 'write']
+     CHARACTERISTIC 6e400003-b5a3-f393-e0a9-e50e24dcca9e (Handle: 14): Nordic UART TX ['notify']
+         DESCRIPTOR 00002902-0000-1000-8000-00805f9b34fb (Handle: 16): Client Characteristic Configuration
+SERVICE 00001801-0000-1000-8000-00805f9b34fb (Handle: 10): Generic Attribute Profile
+#+end_src
+
+Then connect the device. The default is to use a serial port symlinked to ~/tmp/ttyBLE~:
+#+begin_src sh
+ble-serial --dev <MAC address> --read-uuid 6e400003-b5a3-f393-e0a9-e50e24dcca9e --write-uuid 6e400002-b5a3-f393-e0a9-e50e24dcca9e [--port /tmp/ttyBLE]
+#+end_src
+
+To use a TCP port (preferred), add the option ~expose-tcp-port~:
+#+begin_src sh
+ble-serial --dev <MAC address> --read-uuid 6e400003-b5a3-f393-e0a9-e50e24dcca9e --write-uuid 6e400002-b5a3-f393-e0a9-e50e24dcca9e --expose-tcp-port 4002
+#+end_src
+
+** Configure the serial backend
+Set ~banglejs-term-start-function~ to ~#'banglejs-start-serial-term~.
+If you don't use ble-serial or you changed the default port, set ~banglejs-serial-device~ to the path to the serial port.
+
+The terminal is based on serial-terminal and uses term-mode. It tends to leave the device busy when the process is killed and doesn't supports fontification, so the TCP method is preferred.
+
+** Configure the TCP backend
+Set ~banglejs-term-start-function~ to ~banglejs-start-tcp-term~ and ~banglejs-tcp-program~ to the (host . port) combination.
+
+~banglejs-tcp-program~ can also the name of an external program providing a terminal interface, in which case the list of arguments must be set in ~banglejs-tcp-program-args~. Some examples:
+#+begin_src elisp
+(setopt banglejs-tcp-program "telnet"
+        banglejs-tcp-program-args '("127.0.0.1" "4002"))
+(setopt banglejs-tcp-program "socat"
+        banglejs-tcp-program-args '("-dd" "tcp:localhost:4002" "-"))
+#+end_src
+
+The terminal uses the major mode ~banglejs-tcp-term-mode~, based on Comint.
+
+** Creating the serial port / TCP socket automatically
+To start ble-serial or any equivalent program from emacs:
+
+1) Set ~banglejs-ble-serial-cmd~ to the shell command starting the program.
+
+  ~banglejs-ble-serial-cmd~ can be a simple string, or it can contain arbitrary %-sequences. In that case, the values to interpolate in the string are taken from a property list, by default the first element of ~banglejs-devices~. The correspondence between properties and the formatting characters are defined in ~banglejs-ble-serial-format~.
+
+  The default value ~ble-serial --dev %d --read-uuid %r --write-uuid %w --expose-tcp-port %p~ starts ble-serial in TCP mode. It requires that each element of ~banglejs-devices~ specifies a MAC address, read and write UUIDs and TCP port, for example:
+  #+begin_src elisp
+  (setopt banglejs-devices
+          '(( :device <MAC address>
+              :read-uuid "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+              :write-uuid "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+              :tcp-port 4002)))
+  #+end_src
+
+  When ~banglejs-devices~ has several elements, calling ~banglejs-ble-serial-start~ queries for which device to use.
+
+2) Set ~banglejs-ble-serial-success-regexp~ to a string appearing in the output of the command when it has finished setting up. This allows waiting that the serial port / TCP socket is ready before attempting to connect to it. The default value is suitable for ble-serial.
+
+3) Set ~banglejs-ble-serial-cmd-regexp~ to a list of two regexps, matching respectively the executable name (mandatory) and invoking command line (optional) of the program. If this variable is non-nil, ~banglejs-ble-serial-start~ checks that the process is not already running, notably outside emacs.
+
+   Both regexps can contain %-sequencies similar to those of ~banglejs-ble-serial-cmd~. For example,
+   the default value ~("ble-serial" "--dev %d")~ checks whether a ble-serial process is already running for the same device.
+
+4) Optionally add a hook to automatically start the program when calling ~banglejs-term~:
+   #+begin_src elisp
+   (add-hook 'banglejs-term-startup-hook #'banglejs-ble-serial-start)
+   #+end_src
+
+Some common causes of failure:
+- Warning "Device <MAC address> disconnected" and a TimeoutError python traceback, typically happening when restarting ble-serial after stopping it with C-c C-c :: increase the ble-serial connection timeout, or unlock the device to wake it up.
+- "No matching device found!" error, typically happening when restarting ble-serial after killing the process :: the device is still connected via Bluetooth, and needs to be disconnected before ble-serial can detect it. You could add something like ~bluetoothctl disconnect <MAC address>~ to ~banglejs-ble-serial-cmd~ to prevent this.
+
+** Example configuration
+#+begin_src elisp
+(use-package banglejs
+  :custom
+  (banglejs-term-start-function #'banglejs-start-tcp-term)
+  (banglejs-term-window-direction 'right)
+  (banglejs-tcp-program '("localhost" . 4002))
+  (banglejs-devices
+   `((:device "XX:XX:XX:XX:XX:XX"
+              :read-uuid "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+              :write-uuid "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+              :tcp-port ,(cdr banglejs-tcp-program))
+     (:device "YY:YY:YY:YY:YY:YY"
+              :read-uuid "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+              :write-uuid "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+              :tcp-port ,(cdr banglejs-tcp-program))))
+  (banglejs-ble-serial-cmd
+   (concat "bluetoothctl disconnect %d; "
+           "ble-serial --dev %d --read-uuid %r --write-uuid %w --expose-tcp-port %p"))
+  (banglejs-ble-serial-cmd-regexp '("ble-serial" "--dev %d"))
+
+  :bind
+  (:map banglejs-mode-map
+        ("C-c C-c" . banglejs-send-line))
+
+  :hook
+  (banglejs-mode . banglejs-term)                      ; start or show terminal
+  (banglejs-term-startup . banglejs-ble-serial-start)) ; start ble-serial if needed
+#+end_src
