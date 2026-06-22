@@ -2,6 +2,7 @@ Interacts with the Javascript interpreter of an Espruino device via a serial or 
 
 * Usage
 Connect the device to a serial port or a TCP socket. See below [[#quick-instructions-for-ble-serial][Quick instructions for ble-serial]].
+
 This can be done by external means, or by calling ~banglejs-ble-serial-start~. See [[#creating-the-serial-port--tcp-socket-automatically][Creating the serial port / TCP socket automatically]] for configuration instructions.
 
 See [[#configure-the-serial-backend][Configure the serial backend]] or [[#configure-the-tcp-backend][Configure the TCP backend]] to configure the port to use.
@@ -28,7 +29,6 @@ Find the UUIDs for the read and write characteristics for your device. Here for 
 #+begin_src sh
 ble-scan -d <MAC address>
 #+end_src
-#+RESULTS:
 #+begin_src sh
 Found device <MAC address>: Bangle.js (out of 1)
 SERVICE 6e400001-b5a3-f393-e0a9-e50e24dcca9e (Handle: 11): Nordic UART Service
@@ -40,12 +40,14 @@ SERVICE 00001801-0000-1000-8000-00805f9b34fb (Handle: 10): Generic Attribute Pro
 
 Then connect the device. The default is to use a serial port symlinked to ~/tmp/ttyBLE~:
 #+begin_src sh
-ble-serial --dev <MAC address> --read-uuid 6e400003-b5a3-f393-e0a9-e50e24dcca9e --write-uuid 6e400002-b5a3-f393-e0a9-e50e24dcca9e [--port /tmp/ttyBLE]
+ble-serial --dev <MAC address> --read-uuid 6e400003-b5a3-f393-e0a9-e50e24dcca9e \
+           --write-uuid 6e400002-b5a3-f393-e0a9-e50e24dcca9e [--port /tmp/ttyBLE]
 #+end_src
 
 To use a TCP port (preferred), add the option ~expose-tcp-port~:
 #+begin_src sh
-ble-serial --dev <MAC address> --read-uuid 6e400003-b5a3-f393-e0a9-e50e24dcca9e --write-uuid 6e400002-b5a3-f393-e0a9-e50e24dcca9e --expose-tcp-port 4002
+ble-serial --dev <MAC address> --read-uuid 6e400003-b5a3-f393-e0a9-e50e24dcca9e \
+           --write-uuid 6e400002-b5a3-f393-e0a9-e50e24dcca9e --expose-tcp-port 4002
 #+end_src
 
 ** Configure the serial backend
@@ -55,9 +57,9 @@ If you don't use ble-serial or you changed the default port, set ~banglejs-seria
 The terminal is based on serial-terminal and uses term-mode. It tends to leave the device busy when the process is killed and doesn't supports fontification, so the TCP method is preferred.
 
 ** Configure the TCP backend
-Set ~banglejs-term-start-function~ to ~banglejs-start-tcp-term~ and ~banglejs-tcp-program~ to the (host . port) combination.
+Set ~banglejs-term-start-function~ to ~#'banglejs-start-tcp-term~ and ~banglejs-tcp-program~ to the (host . port) combination.
 
-~banglejs-tcp-program~ can also the name of an external program providing a terminal interface, in which case the list of arguments must be set in ~banglejs-tcp-program-args~. Some examples:
+~banglejs-tcp-program~ can also be the name of an external program providing a terminal interface, in which case the list of arguments must be set in ~banglejs-tcp-program-args~. Some examples:
 #+begin_src elisp
 (setopt banglejs-tcp-program "telnet"
         banglejs-tcp-program-args '("127.0.0.1" "4002"))
@@ -74,7 +76,7 @@ To start ble-serial or any equivalent program from emacs:
 
   ~banglejs-ble-serial-cmd~ can be a simple string, or it can contain arbitrary %-sequences. In that case, the values to interpolate in the string are taken from a property list, by default the first element of ~banglejs-devices~. The correspondence between properties and the formatting characters are defined in ~banglejs-ble-serial-format~.
 
-  The default value ~ble-serial --dev %d --read-uuid %r --write-uuid %w --expose-tcp-port %p~ starts ble-serial in TCP mode. It requires that each element of ~banglejs-devices~ specifies a MAC address, read and write UUIDs and TCP port, for example:
+  The default command ~ble-serial --dev %d --read-uuid %r --write-uuid %w --expose-tcp-port %p~ starts ble-serial in TCP mode. It requires that each element of ~banglejs-devices~ specifies a MAC address, read and write UUIDs and TCP port, for example:
   #+begin_src elisp
   (setopt banglejs-devices
           '(( :device <MAC address>
@@ -89,7 +91,7 @@ To start ble-serial or any equivalent program from emacs:
 
 3) Set ~banglejs-ble-serial-cmd-regexp~ to a list of two regexps, matching respectively the executable name (mandatory) and invoking command line (optional) of the program. If this variable is non-nil, ~banglejs-ble-serial-start~ checks that the process is not already running, notably outside emacs.
 
-   Both regexps can contain %-sequencies similar to those of ~banglejs-ble-serial-cmd~. For example,
+   Both regexps can contain %-sequences similar to those of ~banglejs-ble-serial-cmd~. For example,
    the default value ~("ble-serial" "--dev %d")~ checks whether a ble-serial process is already running for the same device.
 
 4) Optionally add a hook to automatically start the program when calling ~banglejs-term~:
@@ -98,8 +100,8 @@ To start ble-serial or any equivalent program from emacs:
    #+end_src
 
 Some common causes of failure:
-- Warning "Device <MAC address> disconnected" and a TimeoutError python traceback, typically happening when restarting ble-serial after stopping it with C-c C-c :: increase the ble-serial connection timeout, or unlock the device to wake it up.
-- "No matching device found!" error, typically happening when restarting ble-serial after killing the process :: the device is still connected via Bluetooth, and needs to be disconnected before ble-serial can detect it. You could add something like ~bluetoothctl disconnect <MAC address>~ to ~banglejs-ble-serial-cmd~ to prevent this.
+- Warning "Device <MAC address> disconnected" and a TimeoutError traceback :: typically happens when restarting ble-serial after stopping it with C-c C-c. Unlocking the device to wake it up so that it starts advertising itself again seems to work. You could also increase the ble-serial connection timeout.
+- Error "No matching device found!" :: typically happens when restarting ble-serial after killing the buffer. The device is still connected via Bluetooth, and needs to be disconnected before ble-serial can detect it. You could add something like ~bluetoothctl disconnect <MAC address>~ to ~banglejs-ble-serial-cmd~ to prevent this.
 
 ** Example configuration
 #+begin_src elisp
