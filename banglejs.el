@@ -492,16 +492,16 @@ or TCP server. You should change this variable to match your device(s)."
 (defvar banglejs--ble-serial-process nil
   "Process started by `banglejs-ble-serial-start'.")
 
-(defun banglejs-ble-serial--format-string (string &optional device)
+(defun banglejs-ble-serial--format-string (string device)
   "Format STRING, using %-sequences defined in `banglejs-ble-serial-format', and
-interpolating the data from DEVICE. By default, use `banglejs-devices'."
+interpolating the data from DEVICE."
   (when string
     (format-spec string
                  (map-apply
                   (lambda (key val)
                     (let ((char (alist-get key banglejs-ble-serial-format)))
                       (when char (cons char val))))
-                  (or device banglejs-devices)))))
+                  device))))
 
 (defun banglejs-ble-serial--process-running-p (&optional device)
   "Check if a (potentially external) ble-serial process is already running.
@@ -532,7 +532,9 @@ The variable `banglejs-ble-serial-success-regexp' should be set to a regexp that
 indicates the process is ready for `banglejs-term' to attempt to connect.
 If DEVICE is nil, use `banglejs-devices'. Query the user if that list has
 several elements."
-  (interactive (list (if (> (length banglejs-devices) 1)
+  (interactive)
+  (let* ((device (or device
+                     (if (> (length banglejs-devices) 1)
                          (completing-read "Connect to device: "
                                           (mapcar (lambda (d) (format "%s" d))
                                                   banglejs-devices))
