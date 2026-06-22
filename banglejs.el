@@ -201,6 +201,14 @@ The type of terminal is controlled by the variable
   (interactive)
   (banglejs-send-region (pos-bol) (pos-eol)))
 
+(defun banglejs-send-region-or-line ()
+  "Send the current region or, if no region is active, the current line
+to the Espruino interpreter."
+  (interactive)
+  (if (region-active-p)
+      (banglejs-send-region (region-beginning) (region-end))
+    (banglejs-send-line)))
+
 (defun banglejs-send-defun ()
   "Send the current definition to the Espruino interpreter."
   (interactive)
