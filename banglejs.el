@@ -216,16 +216,31 @@ to the Espruino interpreter."
   (mark-defun)
   (banglejs-send-region (region-beginning) (region-end)))
 
-(defun banglejs-get-command-output (cmd &optional hide)
-  "Return output of command CMD, return value excluded.
-If HIDE, don't display the output in the terminal."
+(defun banglejs-get-command-output (cmd &optional hide return-value)
+  "Return the output of command CMD, return value excluded.
+If HIDE is non-nil, don't display the output in the terminal.
+If RETURN-VALUE is non-nil, return the return value instead of the output."
   (with-current-buffer banglejs-term-buffer-name
     (let ((output (cond
                    ((derived-mode-p 'term-mode)
                     (banglejs-serial-term--get-command-output cmd))
                    ((derived-mode-p 'comint-mode)
                     (banglejs-tcp-term--get-command-output cmd hide)))))
-      (seq-subseq output 1 -2)))) ; remove cmd, return value and new prompt
+      (if return-value ; list structure : [>cmd] [output…] [return value] [>]
+          (seq-subseq output -2 -1)
+        (seq-subseq output 1 -2)))))
+
+(defun banglejs-check-memory ()
+  "Query the free memory on the device and compact the storage if it is near full."
+  (interactive)
+  (let* ((res (banglejs-get-command-output
+               "let stats = require('Storage').getStats(true); stats.freeBytes / stats.totalBytes"
+               t t))
+         (free (string-to-number (substring (car res) 1)))
+         (threshold 0.1))
+    (when (and (< free threshold)
+               (yes-or-no-p (format "Memory is %.1f%% full; compact storage?" (* 100 (- 1 free)))))
+      (banglejs-send-command "require('Storage').compact()"))))
 
 (defun banglejs--get-files ()
   "Get a list of the files on the BangleJS and store it as `banglejs--files'."
